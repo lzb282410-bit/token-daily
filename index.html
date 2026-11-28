@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f19" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Token 日报" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <title>每日 Token 与任务看板</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #131a2a;
+      --card2: #192238;
+      --border: rgba(255,255,255,0.08);
+      --text: #eef2ff;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #34d399;
+      --purple: #a78bfa;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at top right, #172038 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: env(safe-area-inset-top) 14px calc(28px + env(safe-area-inset-bottom));
+      line-height: 1.5;
+    }
+    .container { max-width: 680px; margin: 0 auto; }
+
+    /* Lock Screen */
+    #lock-screen {
+      min-height: 90vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .lock-card {
+      width: 100%;
+      max-width: 360px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 22px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+      text-align: center;
+    }
+    .lock-icon {
+      width: 52px; height: 52px; margin: 0 auto 14px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+    }
+    .lock-card h1 { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+    .lock-card p { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+    .pwd-input {
+      width: 100%; padding: 12px 14px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: #0d1322; color: var(--text); font-size: 16px;
+      outline: none; margin-bottom: 12px;
+    }
+    .pwd-input:focus { border-color: var(--accent); }
+    .login-label { display: block; text-align: left; font-size: 13px; margin-bottom: 4px; }
+    .btn-primary {
+      width: 100%; padding: 12px; border: none; border-radius: 12px;
+      background: linear-gradient(135deg, #0284c7, #4f46e5);
+      color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.65; cursor: default; }
+    .err-msg { color: var(--rose); font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+    /* Dashboard */
+    #app { display: none; padding-top: 12px; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .title-group h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.2px; }
+    .title-group .sub { font-size: 12px; color: var(--muted); }
+    .topbar-actions { display: flex; align-items: center; gap: 8px; }
+    select.date-select, #period-select {
+      background: var(--card); color: var(--text);
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 7px 10px; font-size: 13px; outline: none;
+    }
+    select { color-scheme: dark; }
+    .icon-btn {
+      background: var(--card); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 7px 10px; font-size: 12px; cursor: pointer;
+    }
+    .icon-btn:disabled { opacity: 0.45; cursor: default; }
+    button:focus-visible, summary:focus-visible, select:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 2px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 13px; font-weight: 600; color: var(--muted);
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    /* Hero KPI */
+    .hero-num {
+      font-size: 34px; font-weight: 800; letter-spacing: -1px;
+      background: linear-gradient(90deg, #fff, #7dd3fc);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      line-height: 1.15;
+    }
+    .hero-exact { font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .delta-pill {
+      font-size: 11px; padding: 2px 7px; border-radius: 99px; font-weight: 600;
+    }
+    .delta-up { background: rgba(251,113,133,0.16); color: var(--rose); }
+    .delta-down { background: rgba(52,211,153,0.16); color: var(--green); }
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px;
+    }
+    .kpi-box {
+      background: var(--card2); border-radius: 12px; padding: 10px;
+    }
+    .kpi-box .lbl { font-size: 11px; color: var(--muted); }
+    .kpi-box .val { font-size: 15px; font-weight: 700; margin-top: 2px; }
+    .kpi-box .hint { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+    /* Weekly, monthly and reset cards */
+    .period-controls, .task-actions {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .period-controls { justify-content: space-between; margin-bottom: 12px; }
+    .period-controls [aria-pressed="true"] {
+      color: var(--accent); background: rgba(56,189,248,0.12);
+      border-color: rgba(56,189,248,0.3);
+    }
+    #period-select { max-width: 100%; }
+    .period-row, .reset-row {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 6px 12px; flex-wrap: wrap;
+    }
+    .period-row .hero-num { font-size: 28px; }
+    #reset-count, .reset-remaining { color: var(--accent); }
+    .reset-row {
+      padding: 10px 0; border-top: 1px solid var(--border); font-size: 13px;
+    }
+    .reset-row time, .reset-row.expired .reset-remaining { color: var(--muted); }
+
+    /* Trend Bars */
+    .trend-wrap {
+      display: flex; align-items: flex-end; gap: 4px; height: 74px; padding-top: 8px;
+    }
+    .t-col {
+      flex: 1; height: 100%; display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end; cursor: pointer;
+    }
+    .t-bar {
+      width: 100%; min-height: 3px; border-radius: 4px 4px 2px 2px;
+      background: rgba(56,189,248,0.28); transition: all 0.15s;
+    }
+    .t-col.active .t-bar { background: linear-gradient(180deg, #38bdf8, #6366f1); }
+    .t-lbl { font-size: 9px; color: var(--muted); margin-top: 4px; }
+    .t-col.active .t-lbl { color: var(--accent); font-weight: 700; }
+
+    /* Client Breakdown */
+    .bar-row { margin-bottom: 11px; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-head {
+      display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;
+    }
+    .bar-head .meta { color: var(--muted); font-size: 12px; }
+    .bar-track {
+      height: 8px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden;
+    }
+    .bar-fill { height: 100%; border-radius: 99px; }
+
+    /* Models */
+    .model-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 7px 10px; font-size: 12px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .chip strong { color: #fff; }
+    .chip span { color: var(--muted); }
+
+    /* Tasks */
+    .proj-group { margin-bottom: 14px; }
+    .proj-group:last-child { margin-bottom: 0; }
+    .task-toolbar { flex-wrap: wrap; gap: 8px; }
+    .proj-header {
+      font-size: 12px; font-weight: 700; color: var(--accent);
+      display: flex; align-items: center; gap: 8px; padding: 8px 0;
+    }
+    .proj-total { margin-left: auto; flex-shrink: 0; }
+    .proj-group summary { list-style: none; cursor: pointer; }
+    .proj-group summary::-webkit-details-marker { display: none; }
+    .proj-header::before, .task-item summary::before {
+      content: ''; display: block; flex: 0 0 7px; height: 7px;
+      border-right: 1px solid var(--accent); border-bottom: 1px solid var(--accent);
+      transform: rotate(-45deg);
+    }
+    details[open] > summary::before { transform: translateY(-2px) rotate(45deg); }
+    .task-item {
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 0 12px; margin-bottom: 8px;
+    }
+    .task-item:last-child { margin-bottom: 0; }
+    .task-item summary { display: flex; align-items: center; gap: 9px; padding: 10px 0; }
+    .task-preview { flex: 1; min-width: 0; }
+    .task-detail { padding-bottom: 10px; }
+    .task-top {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+    }
+    .task-title { font-size: 13.5px; font-weight: 600; color: #f8fafc; word-break: break-word; }
+    .task-tok {
+      flex-shrink: 0; font-size: 11px; font-weight: 700;
+      padding: 2px 7px; border-radius: 8px;
+      background: rgba(56,189,248,0.14); color: #7dd3fc;
+    }
+    .task-meta {
+      font-size: 11px; color: var(--muted); margin-top: 4px;
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .task-sum {
+      font-size: 12.5px; color: #cbd5e1; margin-top: 6px;
+      padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.08);
+      white-space: pre-wrap; overflow-wrap: anywhere;
+    }
+    .empty-state { text-align: center; color: var(--muted); font-size: 13px; padding: 18px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="lock-screen">
+      <form id="login-form" class="lock-card" method="post">
+        <div class="lock-icon">📊</div>
+        <h1>每日 Token 与任务看板</h1>
+        <p>请使用看板账号和访问密码登录</p>
+        <label class="login-label" for="username">账号 / 邮箱</label>
+        <input id="username" class="pwd-input" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" required />
+        <label class="login-label" for="pwd">密码</label>
+        <input id="pwd" class="pwd-input" type="password" autocomplete="current-password" required />
+        <button id="unlock-btn" class="btn-primary" type="submit" disabled>登录</button>
+        <div id="err" class="err-msg" role="status"></div>
+      </form>
+    </div>
+
+    <div id="app">
+      <div class="topbar">
+        <div class="title-group">
+          <h1>Token 与任务日报</h1>
+          <div class="sub" id="updated-at">更新于 --</div>
+        </div>
+        <div class="topbar-actions">
+          <select id="date-select" class="date-select" aria-label="选择日期"></select>
+          <button id="lock-btn" class="icon-btn">锁定</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span id="hero-date-label">当日总消耗</span>
+          <span id="hero-calls">0 次调用</span>
+        </div>
+        <div class="hero-num" id="hero-total">0</div>
+        <div class="hero-exact">
+          <span id="hero-exact-num">0 Tokens</span>
+          <span id="hero-delta"></span>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-box">
+            <div class="lbl">未命中新输入</div>
+            <div class="val" id="kpi-new" style="color:var(--amber)">0</div>
+            <div class="hint">核心计费输入</div>
+          </div>
+          <div class="kpi-box">
+            <div class="lbl">缓存命中</div>
+            <div class="val" id="kpi-cache" style="color:var(--green)">0</div>
+            <div class="hint" id="kpi-cache-rate">命中率 0%</div>
+          </div>
+          <div class="kpi-box">
+            <div class="lbl">总输出</div>
+            <div class="val" id="kpi-out" style="color:var(--purple)">0</div>
+            <div class="hint">含思考/推理</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>每周与每月 Token</span></div>
+        <div class="period-controls">
+          <div class="task-actions" role="group" aria-label="统计周期">
+            <button id="show-weekly" class="icon-btn" type="button" aria-pressed="true">每周</button>
+            <button id="show-monthly" class="icon-btn" type="button" aria-pressed="false">每月</button>
+          </div>
+          <select id="period-select" aria-label="选择统计周期"></select>
+        </div>
+        <div class="period-row">
+          <div>
+            <div class="hero-num" id="period-total"></div>
+            <div class="hero-exact" id="period-exact"></div>
+          </div>
+          <span class="hero-exact" id="period-calls"></span>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-box">
+            <div class="lbl">未命中新输入</div>
+            <div class="val" id="period-new" style="color:var(--amber)"></div>
+          </div>
+          <div class="kpi-box">
+            <div class="lbl">缓存命中率</div>
+            <div class="val" id="period-cache" style="color:var(--green)"></div>
+          </div>
+          <div class="kpi-box">
+            <div class="lbl">总输出</div>
+            <div class="val" id="period-output" style="color:var(--purple)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>Codex 重置卡</span><span id="reset-count"></span></div>
+        <div id="reset-cards"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>近 14 天趋势（点击柱子切换日期）</span>
+          <span id="trend-peak">峰值 --</span>
+        </div>
+        <div class="trend-wrap" id="trend-bars"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>分软件 / 客户端消耗</span></div>
+        <div id="client-bars"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>分模型消耗</span></div>
+        <div class="model-chips" id="model-chips"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title task-toolbar">
+          <span>当日主要任务与会话</span>
+          <div class="task-actions">
+            <span id="task-count">0 项</span>
+            <button id="expand-tasks" class="icon-btn" type="button" aria-controls="task-list">全部展开</button>
+            <button id="collapse-tasks" class="icon-btn" type="button" aria-controls="task-list">全部收起</button>
+          </div>
+        </div>
+        <div id="task-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let DATA = null;
+    let CURRENT_DAY = null;
+
+    const CLIENT_COLORS = {
+      orca_codex: '#38bdf8',
+      orca_agy: '#a78bfa',
+      codex_desktop: '#34d399',
+      agy_ide: '#fbbf24'
+    };
+
+    function fmtCN(n) {
+      if (!n) return '0';
+      if (n >= 1e8) return (n / 1e8).toFixed(2) + ' 亿';
+      if (n >= 1e4) return (n / 1e4).toFixed(1) + ' 万';
+      return n.toLocaleString('zh-CN');
+    }
+
+    function b64ToBytes(b64) {
+      const bin = atob(b64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return arr;
+    }
+
+    function normalizeUsername(username) {
+      // Match the Python builder's ASCII trim and case fold.
+      return username.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, '').replace(/[A-Z]/g, c => c.toLowerCase());
+    }
+
+    async function decryptData(enc, username, password) {
+      const credential = new TextEncoder().encode('token-daily-dashboard:v2\0' + username + '\0' + password);
+      const keyMat = await crypto.subtle.importKey('raw', credential, 'PBKDF2', false, ['deriveKey']);
+      const key = await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: b64ToBytes(enc.salt), iterations: enc.iterations, hash: 'SHA-256' },
+        keyMat,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+      );
+      const plain = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: b64ToBytes(enc.iv) },
+        key,
+        b64ToBytes(enc.ct)
+      );
+      return JSON.parse(new TextDecoder().decode(plain));
+    }
+
+    function renderDay(dayStr) {
+      CURRENT_DAY = dayStr;
+      const d = DATA.days[dayStr];
+      if (!d) return;
+
+      document.getElementById('date-select').value = dayStr;
+      const isToday = dayStr === DATA.today;
+      document.getElementById('hero-date-label').textContent = isToday ? `今日消耗 (${dayStr})` : `历史消耗 (${dayStr})`;
+      document.getElementById('hero-calls').textContent = `${d.calls} 次调用`;
+      document.getElementById('hero-total').textContent = fmtCN(d.total_tokens);
+      document.getElementById('hero-exact-num').textContent = `${d.total_tokens.toLocaleString('zh-CN')} Tokens`;
+
+      // Delta vs previous day
+      const keys = Object.keys(DATA.days).sort();
+      const idx = keys.indexOf(dayStr);
+      const deltaEl = document.getElementById('hero-delta');
+      if (idx > 0) {
+        const prev = DATA.days[keys[idx - 1]].total_tokens;
+        if (prev > 0) {
+          const pct = Math.round(((d.total_tokens - prev) / prev) * 100);
+          deltaEl.className = 'delta-pill ' + (pct >= 0 ? 'delta-up' : 'delta-down');
+          deltaEl.textContent = (pct >= 0 ? '↑ +' : '↓ ') + pct + '% 较前日';
+        } else {
+          deltaEl.textContent = '';
+          deltaEl.className = '';
+        }
+      } else {
+        deltaEl.textContent = '';
+        deltaEl.className = '';
+      }
+
+      document.getElementById('kpi-new').textContent = fmtCN(d.new_input);
+      document.getElementById('kpi-cache').textContent = fmtCN(d.cache_input);
+      const totIn = d.new_input + d.cache_input;
+      const rate = totIn > 0 ? ((d.cache_input / totIn) * 100).toFixed(1) : '0.0';
+      document.getElementById('kpi-cache-rate').textContent = `命中率 ${rate}%`;
+      document.getElementById('kpi-out').textContent = fmtCN(d.output_tokens);
+
+      // 14-day trend
+      const recent14 = keys.slice(Math.max(0, idx - 13), idx + 1);
+      const maxVal = Math.max(1, ...recent14.map(k => DATA.days[k].total_tokens));
+      document.getElementById('trend-peak').textContent = `峰值 ${fmtCN(maxVal)}`;
+      const tWrap = document.getElementById('trend-bars');
+      tWrap.innerHTML = '';
+      recent14.forEach(k => {
+        const val = DATA.days[k].total_tokens;
+        const h = Math.max(4, Math.round((val / maxVal) * 56));
+        const col = document.createElement('div');
+        col.className = 't-col' + (k === dayStr ? ' active' : '');
+        col.title = `${k}: ${fmtCN(val)}`;
+        col.innerHTML = `<div class="t-bar" style="height:${h}px"></div><div class="t-lbl">${k.slice(8)}</div>`;
+        col.onclick = () => renderDay(k);
+        tWrap.appendChild(col);
+      });
+
+      // Client bars
+      const cWrap = document.getElementById('client-bars');
+      cWrap.innerHTML = '';
+      const clients = Object.entries(d.by_client).sort((a, b) => b[1].total - a[1].total);
+      const cMax = Math.max(1, ...clients.map(x => x[1].total));
+      clients.forEach(([key, c]) => {
+        const pct = d.total_tokens > 0 ? ((c.total / d.total_tokens) * 100).toFixed(1) : '0.0';
+        const w = c.total > 0 ? Math.max(2, Math.round((c.total / cMax) * 100)) : 0;
+        const row = document.createElement('div');
+        row.className = 'bar-row';
+        row.innerHTML = `
+          <div class="bar-head">
+            <span>${escapeHtml(c.label)}</span>
+            <span class="meta">${fmtCN(c.total)} (${pct}%) · ${c.calls}次</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${CLIENT_COLORS[key] || '#38bdf8'}"></div></div>
+        `;
+        cWrap.appendChild(row);
+      });
+
+      // Models
+      const mWrap = document.getElementById('model-chips');
+      mWrap.innerHTML = '';
+      if (!d.by_model || d.by_model.length === 0) {
+        mWrap.innerHTML = '<div class="empty-state">当日无模型调用记录</div>';
+      } else {
+        d.by_model.forEach(m => {
+          const el = document.createElement('div');
+          el.className = 'chip';
+          el.innerHTML = `<strong>${escapeHtml(m.name)}</strong><span>${fmtCN(m.total)}</span>`;
+          mWrap.appendChild(el);
+        });
+      }
+
+      renderTasks(d.tasks);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[ch]);
+    }
+
+    function renderTasks(tasks) {
+      const wrap = document.getElementById('task-list');
+      wrap.replaceChildren();
+      document.getElementById('task-count').textContent = `${tasks.length} 项`;
+      for (const id of ['expand-tasks', 'collapse-tasks']) {
+        document.getElementById(id).disabled = !tasks.length;
+      }
+      if (!tasks.length) {
+        wrap.innerHTML = '<div class="empty-state">这一天没有记录到任务活动</div>';
+        return;
+      }
+      const groups = new Map();
+      for (const task of tasks) {
+        if (!groups.has(task.project)) groups.set(task.project, { total: 0, items: [] });
+        const group = groups.get(task.project);
+        group.total += task.tokens;
+        group.items.push(task);
+      }
+      for (const [project, group] of [...groups].sort((a, b) => b[1].total - a[1].total)) {
+        const section = document.createElement('details');
+        section.className = 'proj-group';
+        section.open = true;
+        section.innerHTML = `<summary class="proj-header"><span>${escapeHtml(project)}</span><span class="proj-total">小计 ${fmtCN(group.total)}</span></summary>`;
+        for (const task of group.items) {
+          const item = document.createElement('details');
+          item.className = 'task-item';
+          item.innerHTML = `
+            <summary>
+              <div class="task-preview">
+                <div class="task-top">
+                  <span class="task-title">${escapeHtml(task.title)}</span>
+                  <span class="task-tok" title="${task.tokens.toLocaleString('zh-CN')} Tokens">${fmtCN(task.tokens)}</span>
+                </div>
+                <div class="task-meta">
+                  <span>${escapeHtml(task.client_label)}</span>
+                  <span>${escapeHtml(task.model)}</span>
+                </div>
+              </div>
+            </summary>
+            <div class="task-detail">
+              <div class="task-meta">
+                <span>${task.calls.toLocaleString('zh-CN')} 次调用</span>
+                <span>新输入 ${task.new_in.toLocaleString('zh-CN')}</span>
+                <span>缓存 ${(task.cache_in ?? 0).toLocaleString('zh-CN')}</span>
+                <span>输出 ${task.out.toLocaleString('zh-CN')}</span>
+                ${task.time ? `<span>${escapeHtml(task.time)}</span>` : ''}
+              </div>
+              <div class="task-sum">${escapeHtml(task.summary)}</div>
+            </div>`;
+          section.appendChild(item);
+        }
+        wrap.appendChild(section);
+      }
+    }
+
+    function toggleTasks(open) {
+      for (const details of document.querySelectorAll('#task-list details')) details.open = open;
+    }
+
+    function cacheRate(usage) {
+      const input = usage.new_input + usage.cache_input;
+      return input ? (usage.cache_input / input * 100).toFixed(1) + '%' : '—';
+    }
+
+    function initPeriods(periods) {
+      const select = document.getElementById('period-select');
+      const weekly = document.getElementById('show-weekly');
+      const monthly = document.getElementById('show-monthly');
+      function show(kind) {
+        const values = periods[kind];
+        const isWeek = kind === 'weekly';
+        weekly.setAttribute('aria-pressed', String(isWeek));
+        monthly.setAttribute('aria-pressed', String(!isWeek));
+        select.replaceChildren();
+        for (const [index, key] of Object.keys(values).sort().reverse().entries()) {
+          let label = key;
+          if (isWeek) {
+            const end = new Date(key + 'T00:00:00Z');
+            end.setUTCDate(end.getUTCDate() + 6);
+            label += ' – ' + end.toISOString().slice(0, 10);
+          }
+          if (!index) label = (isWeek ? '本周 · ' : '本月 · ') + label;
+          select.add(new Option(label, key));
+        }
+        select.onchange = () => {
+          const totals = values[select.value];
+          document.getElementById('period-total').textContent = fmtCN(totals.total_tokens);
+          document.getElementById('period-exact').textContent = totals.total_tokens.toLocaleString('zh-CN') + ' Tokens';
+          document.getElementById('period-calls').textContent = totals.calls.toLocaleString('zh-CN') + ' 次调用';
+          for (const [id, value] of [['period-new', totals.new_input], ['period-output', totals.output_tokens]]) {
+            const element = document.getElementById(id);
+            element.textContent = fmtCN(value);
+            element.title = value.toLocaleString('zh-CN');
+          }
+          document.getElementById('period-cache').textContent = cacheRate(totals);
+        };
+        select.onchange();
+      }
+      weekly.onclick = () => show('weekly');
+      monthly.onclick = () => show('monthly');
+      show('weekly');
+    }
+
+    function initResetCards(cards) {
+      const wrap = document.getElementById('reset-cards');
+      const count = document.getElementById('reset-count');
+      wrap.replaceChildren();
+      if (!cards.length) {
+        count.textContent = '待同步';
+        wrap.innerHTML = '<div class="empty-state">可在本地配置中填入重置卡的到期时间</div>';
+        return;
+      }
+
+      const rows = cards.map((card, index) => {
+        const expires = Date.parse(card.expires_at);
+        const row = document.createElement('div');
+        row.className = 'reset-row';
+        row.innerHTML = `<span>第 ${index + 1} 张</span><time></time><span class="reset-remaining"></span>`;
+        const time = row.querySelector('time');
+        time.dateTime = card.expires_at;
+        time.textContent = card.expires_at.slice(0, 19).replace('T', ' ') + ' 到期（北京时间）';
+        wrap.appendChild(row);
+        return { row, expires, remaining: row.querySelector('.reset-remaining') };
+      });
+
+      function tick() {
+        const now = Date.now();
+        let active = 0;
+        for (const entry of rows) {
+          const left = entry.expires - now;
+          entry.row.classList.toggle('expired', left <= 0);
+          if (left <= 0) {
+            entry.remaining.textContent = '已过期';
+            continue;
+          }
+          active += 1;
+          const minutes = Math.ceil(left / 60000);
+          const days = Math.floor(minutes / 1440);
+          const hours = Math.floor(minutes % 1440 / 60);
+          entry.remaining.textContent = '剩余 ' + (days ? days + ' 天 ' : '') +
+            (days || hours ? hours + ' 小时 ' : '') + minutes % 60 + ' 分钟';
+        }
+        count.textContent = `剩余 ${active} 张`;
+        return active;
+      }
+      if (tick()) {
+        const timer = setInterval(() => {
+          if (!tick()) clearInterval(timer);
+        }, 1000);
+      }
+    }
+
+    function initApp(data) {
+      DATA = data;
+      initPeriods(data.periods);
+      initResetCards(data.codex_reset_cards ?? []);
+      document.getElementById('updated-at').textContent = `更新于 ${data.generated_at}`;
+
+      const sel = document.getElementById('date-select');
+      sel.innerHTML = '';
+      Object.keys(data.days).sort().reverse().forEach(k => {
+        const opt = document.createElement('option');
+        opt.value = k;
+        const tot = data.days[k].total_tokens;
+        opt.textContent = (k === data.today ? `今天 (${k.slice(5)})` : k) + (tot > 0 ? ` · ${fmtCN(tot)}` : '');
+        sel.appendChild(opt);
+      });
+      sel.onchange = () => renderDay(sel.value);
+      renderDay(data.today);
+      document.getElementById('lock-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+    }
+
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('pwd');
+    const loginButton = document.getElementById('unlock-btn');
+    document.getElementById('login-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      if (loginButton.disabled) return;
+      const errEl = document.getElementById('err');
+      errEl.textContent = '';
+      const username = normalizeUsername(usernameInput.value);
+      const password = passwordInput.value;
+      if (!username || username.includes('\0') || !password) {
+        errEl.textContent = '请输入账号和密码';
+        return;
+      }
+      loginButton.disabled = true;
+      loginButton.textContent = '正在登录…';
+      try {
+        const resp = await fetch('data.enc.json?t=' + Date.now(), { cache: 'no-store' });
+        if (!resp.ok) throw new Error('Snapshot unavailable');
+        const enc = await resp.json();
+        if (enc.v !== 2) throw new Error('Unsupported snapshot version');
+        let data;
+        try {
+          data = await decryptData(enc, username, password);
+        } catch {
+          errEl.textContent = '账号或密码错误，请重试';
+          return;
+        }
+        passwordInput.value = '';
+        initApp(data);
+      } catch {
+        errEl.textContent = '暂时无法加载看板，请重试';
+      } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = '登录';
+      }
+    });
+    document.getElementById('expand-tasks').onclick = () => toggleTasks(true);
+    document.getElementById('collapse-tasks').onclick = () => toggleTasks(false);
+    document.getElementById('lock-btn').onclick = () => {
+      location.reload();
+    };
+
+    try {
+      localStorage.removeItem('lzb_token_dash_pwd_v1');
+    } catch {
+      // Login also works when browser storage is unavailable.
+    }
+    loginButton.disabled = false;
+  </script>
+</body>
+</html>
